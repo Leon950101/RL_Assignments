@@ -1,105 +1,95 @@
-# import numpy as np
-
 class MyKarel:
     
     def __init__(self):
         self.actions = ["m", "l", "r", "p", "f"] # move, turnLeft, turnRight, pickMarker, finish
         self.walls = [[3, 2], [1, 3], [0, 5], [4, 3]] # self._set_walls(), set random walls in the grid
-        self.diamonds = [[5, 0], [2, 1]] # self._set_diamonds(), set random diamonds in the grid
-        self.action_index = -1 # for automatical run
+        self.markers = [[5, 0], [2, 1]] # self._set_markers(), set random markers in the grid
         self.x, self.y = 6, 6 # can be changed in the future
-        self.states = self._set_states()
+        self.gamma = 0.9 # for reward discount
+        self.s_0 = (0, 3, 1, 0)  # d: 0/1/2/3: west/south/east/north | x/y: 0-5 | h: 0/1: empty/marker
+        # reward function setting for now.
+        self.r_minus = -1
+        self.r_small_minus = -0.1
+        self.r_small_positive = 0.1
+        self.r_positive = 1
        
     def _set_walls(self): # TODO
         walls = 0
         return walls
-    def _set_diamonds(self): # TODO
-        diamonds = 0
-        return diamonds
-       
-    def _set_states(self):
-        states = [[0] * 4] * (4 * self.x * self.y) # np.zeros((self.x * self.y * 4, 4), dtype=int)
-        index = 0
-        for x in range(self.x):
-            for y in range(self.y):
-                for d in range(4):
-                    if [x, y] in self.walls:
-                        states[index] = d, x, y, 1
-                    elif [x, y] in self.diamonds:
-                        states[index] = d, x, y, 2
-                    else:
-                        states[index] = d, x, y, 0
-                    index += 1
-        return states
+    
+    def _set_markers(self): # TODO
+        markers = 0
+        return markers
     
     def reset(self):
         self.walls = [[3, 2], [1, 3], [0, 5], [4, 3]]
-        self.diamonds = [[5, 0], [2, 1]]
-        self.action_index = -1
-        # S_0
-        self.agent = (0, 3, 1, 0) # d: for direction, 0: west, 1: south, 2: east, 3: north | x: 0-5 | y: 0-5 | g: 0: empty, 1: diamond, 2: wall
+        self.markers = [[5, 0], [2, 1]]
+        self.agent = self.s_0
 
     def transition(self, a):
-        d, x, y, g = self.agent
-        if a == "m" : t = self._move(d, x, y, g)
-        if a == "l" : t = self._turnLeft(d, x, y, g)
-        if a == "r" : t = self._turnRight(d, x, y, g)
-        if a == "p" : t = self._pickMarker(d, x, y, g)
-        if a == "f" : t = self._finish(d, x, y, g)
-        return t
-
-    def _move(self, d, x, y, g):
-        if d == 0: # to west
-            if (y-1) < 0 or [x, y-1] in self.walls:
-                t = True
-            else:
-                self.agent = (d, x, y-1, g)
-                t = False
-        elif d == 1: # to south
-            if (x+1) > 5 or [x+1, y] in self.walls:
-                t = True
-            else:
-                self.agent = (d, x+1, y, g)
-                t = False
-        elif d == 2: # to east
-            if (y+1) > 5 or [x, y+1] in self.walls:
-                t = True
-            else:
-                self.agent = (d, x, y+1, g)
-                t = False
-
-        elif d == 3: # to north
-            if (x-1) < 0 or [x-1, y] in self.walls:
-                t = True
-            else:
-                self.agent = (d, x-1, y, g)
-                t = False
-        return t
-
-    def _turnLeft(self, d, x, y, g):
-        d = (d+1) % 4
-        self.agent = (d, x, y, g)
-        t = False
-        return t 
-
-    def _turnRight(self, d, x, y, g):
-        d = (d+3) % 4
-        self.agent = (d, x, y, g)
-        t = False
-        return t
-
-    def _pickMarker(self, d, x, y, g): # TODO
-        if [self.agent[1], self.agent[2]] not in self.diamonds:
-            t = True
-        else:
-            self.agent = (d, x, y, 0)
-            self.diamonds.remove([x, y])
+        d, x, y, h = self.agent
+        if a == "m" : 
+            if d == 0: # to west
+                if (y-1) < 0 or [x, y-1] in self.walls:
+                    t = True
+                    r = self.r_minus
+                else:
+                    self.agent = (d, x, y-1, h)
+                    t = False
+                    r = self.r_small_minus
+            elif d == 1: # to south
+                if (x+1) > 5 or [x+1, y] in self.walls:
+                    t = True
+                    r = self.r_minus
+                else:
+                    self.agent = (d, x+1, y, h)
+                    t = False
+                    r = self.r_small_minus
+            elif d == 2: # to east
+                if (y+1) > 5 or [x, y+1] in self.walls:
+                    t = True
+                    r = self.r_minus
+                else:
+                    self.agent = (d, x, y+1, h)
+                    t = False
+                    r = self.r_small_minus
+            elif d == 3: # to north
+                if (x-1) < 0 or [x-1, y] in self.walls:
+                    t = True
+                    r = self.r_minus
+                else:
+                    self.agent = (d, x-1, y, h)
+                    t = False
+                    r = self.r_small_minus
+        
+        if a == "l" :
+            d = (d+1) % 4
+            self.agent = (d, x, y, h)
             t = False
-        return t
+            r = self.r_small_minus
 
-    def _finish(self, d, x, y, g):
-        t = True
-        return t
+        if a == "r" :
+            d = (d+3) % 4
+            self.agent = (d, x, y, h)
+            t = False
+            r = self.r_small_minus
+        
+        if a == "p" :
+            if [self.agent[1], self.agent[2]] not in self.markers:
+                t = True
+                r = self.r_minus
+            else:
+                self.agent = (d, x, y, 1)
+                self.markers.remove([x, y])
+                t = False
+                r = self.r_small_positive
+        
+        if a == "f" :
+            t = True
+            if x == 5 and y == 2 and h == 1: r = self.r_positive
+            else: r = self.r_minus
+        
+        return t, r
 
     def show(self):
         for x in range(self.x):
@@ -107,19 +97,19 @@ class MyKarel:
             for y in range(self.y):
                 if x == self.agent[1] and y == self.agent[2]:
                     if self.agent[0] == 0:
-                        print('w', end="")
+                        print('w ', end="")
                     elif self.agent[0] == 1:
-                        print('s', end="")
+                        print('s ', end="")
                     elif self.agent[0] == 2:
-                        print('e', end="")
+                        print('e ', end="")
                     elif self.agent[0] == 3:
-                        print('n', end="")
+                        print('n ', end="")
                 elif [x, y] in self.walls:
-                    print('W', end="")
-                elif [x, y] in self.diamonds:
-                    print('D', end="")
+                    print('W ', end="")
+                elif [x, y] in self.markers:
+                    print('D ', end="")
                 else:
-                    print("-", end="")
+                    print("- ", end="")
         print()
         print()
 
@@ -138,17 +128,10 @@ class MyKarel:
             if a == "q":
                 break
             if a in self.actions:
-                termination = self.transition(a)
-                self.show()
-    
-    def run(self):
-        actions = ["m", "l", "m", "m", "p", "l", "m", "m", "f", "q"]
-        self.action_index += 1
-        return actions[self.action_index]
+                termination, r = self.transition(a)
+                print("reward:", r)
+                self.show() 
 
-    def reward_function(self, d, x, y, g, a): # TODO no need in this task
-        return
-    
 if __name__ == '__main__':
    
     play = MyKarel()
