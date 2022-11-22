@@ -73,7 +73,22 @@ def init_s_V(walls, markers, X, Y):
                     for i in range(4):
                         states.append((i, x, y))
                         V_values[i, x, y] = 0
-    
+    else: # TODO
+        for x in range(X):
+            for y in range(Y):
+                if [x, y] in walls:
+                    pass
+                else:
+                    for i in range(4):
+                        states.append((i, x, y, 0, 0))
+                        V_values[i, x, y, 0, 0] = 0
+                        states.append((i, x, y, 0, 1))
+                        V_values[i, x, y, 0, 1] = 0
+                        states.append((i, x, y, 1, 0))
+                        V_values[i, x, y, 1, 0] = 0
+                        states.append((i, x, y, 1, 1))
+                        V_values[i, x, y, 1, 1] = 0
+
     return states, V_values
 
 if __name__ == '__main__':

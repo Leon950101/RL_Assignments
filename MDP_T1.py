@@ -179,5 +179,5 @@ class MyKarel_1:
 
 if __name__ == '__main__':
    
-    play = MyKarel()
+    play = MyKarel_1()
     play.run()

@@ -153,5 +153,5 @@ class MyKarel_2:
 
 if __name__ == '__main__':
    
-    play = MyKarel()
+    play = MyKarel_2()
     play.run()
