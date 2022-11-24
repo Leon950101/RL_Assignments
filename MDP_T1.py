@@ -8,8 +8,8 @@ class MyKarel_1:
         self.x, self.y = 6, 6 # 6*6 grid world
         # State: d: 0/1/2/3: west/south/east/north | x/y: 0-5
         # 1st MARKER status: 0/1: Present or not | 2nd MARKER status: 0/1: Present or not
-        self.s_0 = (0, 3, 1, 1, 1) # Init state
-        self.s_f = (2, 5, 2, 0, 1) # Target state
+        self.s_0 = (0, 3, 1, 1, 1) # Init state 
+        self.s_f = (2, 5, 2, 0, 1) # Target state 
         # Reward function
         self.r_minus = -1
         self.r_pick_m1 = 10
@@ -17,7 +17,6 @@ class MyKarel_1:
     
     # Reset environment
     def reset(self):
-        self.markers = [[5, 0], [2, 1]] # In case any marker has been picked in the last episode
         return self.s_0 # Set init state to the agent
 
     # Transition probability function
@@ -73,18 +72,20 @@ class MyKarel_1:
             r = self.r_minus
         
         if a == "p" : # Action "pickMarker"
-            if [x, y] not in self.markers: # no MARKER to pick: termination and return minus reward (-1)
+            if [x, y] not in self.markers: # not MARKER grid-cell: termination and return minus reward (-1)
                 t = True
                 r = self.r_minus
             else:
                 t = False
-                if x == 5 and y == 0:
-                    s_1 = (d, x, y, 0, m2) # Pick 1st MARKER (the target one), ruturn reward (10)
+                if x == 5 and y == 0 and m1 == 1: # MARKER 1 is still there
+                    s_1 = (d, x, y, 0, m2) # Pick 1st MARKER (the target one), ruturn minus reward (-1) or extra reward (10)
                     r = self.r_pick_m1
-                else: 
+                elif x == 2 and y == 1 and m2 == 1: # MARKER 2 is still there
                     s_1 = (d, x, y, m1, 0) # Pick 2nd MARKER, return minus reward (-1)
                     r = self.r_minus
-                self.markers.remove([x, y]) # Remove this MARKER from the environment    
+                else: 
+                    t = True
+                    r = self.r_minus
                 
         if a == "f" : # Action "finish"
             t = True
@@ -102,23 +103,29 @@ class MyKarel_1:
         for x in range(self.x):
             print()
             for y in range(self.y):
-                if x == s[1] and y == s[2]:
+                if x == s[1] and y == s[2]: # Agent current location
                     if s[0] == 0:
-                        if [x, y] in self.markers: print('W ', end="")
+                        if x == 5 and y == 0 and s[3] == 1: print('W ', end="")
+                        elif x == 2 and y == 1 and s[4] == 1: print('W ', end="")
                         else: print('w ', end="")
                     elif s[0] == 1:
-                        if [x, y] in self.markers: print('S ', end="")
+                        if x == 5 and y == 0 and s[3] == 1: print('S ', end="")
+                        elif x == 2 and y == 1 and s[4] == 1: print('S ', end="")
                         else: print('s ', end="")
                     elif s[0] == 2:
-                        if [x, y] in self.markers: print('E ', end="")
+                        if x == 5 and y == 0 and s[3] == 1: print('E ', end="")
+                        elif x == 2 and y == 1 and s[4] == 1: print('E ', end="")
                         else: print('e ', end="")
                     elif s[0] == 3:
-                        if [x, y] in self.markers: print('N ', end="")
+                        if x == 5 and y == 0 and s[3] == 1: print('N', end="")
+                        elif x == 2 and y == 1 and s[4] == 1: print('N ', end="")
                         else: print('n ', end="")
                 elif [x, y] in self.walls:
                     print('# ', end="")
                 elif [x, y] in self.markers:
-                    print('o ', end="")
+                    if x == 5 and y == 0 and s[3] == 0: print("- ", end="")
+                    elif  x == 2 and y == 1 and s[4] == 0: print("- ", end="")
+                    else: print('o ', end="")
                 else:
                     print("- ", end="")
         print()

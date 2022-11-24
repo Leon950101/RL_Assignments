@@ -49,7 +49,6 @@ def value_iteration(env):
             else:
                 V_temp[a] = r + gamma * V_values[s_1]
         a_max = max(V_temp.items(), key=lambda x:x[1])
-        print(s, a_max)
         policy[s] = a_max[0]
 
     return policy
@@ -66,7 +65,7 @@ def init_s_V(walls, markers, X, Y):
                     for i in range(4): # 4 directions
                         states.append((i, x, y))
                         V_values[i, x, y] = 0
-    else: # simplified version, just work for Task T1
+    else: # Simplified version, work for Task T1
         for x in range(X):
             for y in range(Y):
                 if [x, y] in walls:
