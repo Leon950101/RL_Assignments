@@ -6,14 +6,29 @@ class MyKarel_1:
         self.walls = [[3, 2], [1, 3], [0, 5], [4, 3]] # Set walls
         self.markers = [[5, 0], [2, 1]] # Set markers
         self.x, self.y = 6, 6 # 6*6 grid world
+        self.states = self._init_states() # Generate state space (32(36 grids-4 walls) * 4 * 2 * 2) = 512
         # State: d: 0/1/2/3: west/south/east/north | x/y: 0-5
         # 1st MARKER status: 0/1: Present or not | 2nd MARKER status: 0/1: Present or not
-        self.s_0 = (0, 3, 1, 1, 1) # Init state 
+        self.s_0 = (0, 3, 1, 1, 1) # Init state
         self.s_f = (2, 5, 2, 0, 1) # Target state 
+        self.gamma = 0.99 # For reward discount, not needed for episodic task
         # Reward function
         self.r_minus = -1
-        self.r_pick_m1 = 10
         self.r_positive = 100
+
+    def _init_states(self):
+        states = []
+        for x in range(self.x):
+            for y in range(self.y):
+                if [x, y] in self.walls:
+                    pass
+                else:
+                    for i in range(4):
+                        states.append((i, x, y, 0, 0))
+                        states.append((i, x, y, 0, 1))
+                        states.append((i, x, y, 1, 0))
+                        states.append((i, x, y, 1, 1))
+        return states
     
     # Reset environment
     def reset(self):
@@ -79,7 +94,7 @@ class MyKarel_1:
                 t = False
                 if x == 5 and y == 0 and m1 == 1: # MARKER 1 is still there
                     s_1 = (d, x, y, 0, m2) # Pick 1st MARKER (the target one), ruturn minus reward (-1) or extra reward (10)
-                    r = self.r_pick_m1
+                    r = self.r_minus
                 elif x == 2 and y == 1 and m2 == 1: # MARKER 2 is still there
                     s_1 = (d, x, y, m1, 0) # Pick 2nd MARKER, return minus reward (-1)
                     r = self.r_minus

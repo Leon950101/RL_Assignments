@@ -4,15 +4,28 @@ class MyKarel_2:
     def __init__(self):
         self.actions = ["m", "l", "r", "f"] # Action space: move, turnLeft, turnRight, finish
         self.walls = [[1, 2], [2, 3]] # Set walls
-        self.markers = [] # Set markers
+        self.markers = []
         self.x, self.y = 4, 4 # 4*4 grid world
+        self.states = self._init_states() # Generate state space (14(16 grids-2 walls) * 4) = 56
         # State: d: 0/1/2/3: west/south/east/north | x/y: 0-3
         self.s_0 = (0, 1, 1) # Init state
-        self.s_f = (2, 3, 2) # Target state
+        self.s_f = (2, 3, 2) # Target state (2, 3, 2)
+        self.gamma = 0.99 # For reward discount, not needed for episodic task
         # Reward function
         self.r_minus = 0
         self.r_positive = 1
-    
+       
+    def _init_states(self):
+        states = []
+        for x in range(self.x):
+            for y in range(self.y):
+                if [x, y] in self.walls:
+                    pass
+                else:
+                    for i in range(4):
+                        states.append((i, x, y))
+        return states
+
     # Reset environment
     def reset(self):
         return self.s_0 # Set init state to the agent
