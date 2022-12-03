@@ -6,7 +6,8 @@ from random import choice
 from MDP_T1 import MyKarel_1
 from MDP_T2 import MyKarel_2
 
-def Q_learning(env):
+# Choose one set of parameters and run multiple times
+def Q_learning(env, imn, pf):
     
     # Information from the enviornment
     actions = env.actions # Action space
@@ -26,8 +27,8 @@ def Q_learning(env):
     # Initialization for the algorithm
     Q_values = _init_Q(walls, markers, actions, X, Y) # Initialize Q(s), 56 * 4 = 224 or 512 * 5 = 2560
     it_num = 0 # To count the iteration number for finding the optimal policy
-    it_max_num = 1000000 # Maxmimum steps in total
-    print_fre = 1000
+    it_max_num = imn # Maxmimum steps in total
+    print_fre = pf
     acc_reward = np.zeros(int(it_max_num / print_fre)) # For plot
     ind_r = 0
 
@@ -48,7 +49,7 @@ def Q_learning(env):
             episode_steps = 0
             acc_reward[ind_r] += r
         else:
-            a_1= max_action(s_1, actions, Q_values) # TODO
+            a_1= e_greedy_policy(s_1, 0, actions, Q_values) # Set epsilon = 0 to choose max action
             Q_values[s, a] += alpha * (r + gamma * Q_values[s_1, a_1] - Q_values[s, a])
             s = s_1
         
@@ -58,29 +59,11 @@ def Q_learning(env):
             episode_num = 0
             ind_r += 1
 
-    # Plot
-    x = np.linspace(0, it_max_num, int(it_max_num / print_fre))
-    y = acc_reward
-
-    fig, ax = plt.subplots()
-
-    ax.plot(x, y, linewidth=2.0)
-    plt.show()
-
-    return Q_values
+    return Q_values, acc_reward
     
-def max_action(s, actions, Q_values):
-    a = choice(actions)
-    q_s_values = {}
-    for a in actions:
-        q_s_values[a] = Q_values[s, a]
-    a_max = max(q_s_values.items(), key=lambda x:x[1])
-    a = a_max[0]
-    return a
-
 def e_greedy_policy(s, epsilon, actions, Q_values):
     a = choice(actions)
-    if np.random.random() > epsilon: # Choose the maximum
+    if np.random.random() >= epsilon: # Choose the maximum
         q_s_values = {}
         for a in actions:
             q_s_values[a] = Q_values[s, a]
@@ -114,7 +97,7 @@ def _init_Q(walls, markers, actions, X, Y):
     return Q_values
 
 # Run the game with optimal policy
-def run_optimal(env, epsilon, actions, Q_values):
+def run_optimal(env, actions, Q_values):
     print()
     print("** Best Sequence of Commands **")
     
@@ -123,7 +106,7 @@ def run_optimal(env, epsilon, actions, Q_values):
     env.show(s)
     
     while True:
-        a = e_greedy_policy(s, epsilon, actions, Q_values)
+        a = e_greedy_policy(s, 0, actions, Q_values)
         t, r, s_1 = env.transition(s, a)
         s = s_1
         print("Action:", a, "/ Reward:", r)       
@@ -148,7 +131,26 @@ if __name__ == '__main__':
             print("Task T2")
             env = MyKarel_2()
 
-    # Calculate the optimal policy and run the game with it
-    Q_values = Q_learning(env)
-    # run_optimal(env, 0.1, env.actions, Q_values)
+    it_max_num = 1000000 # Maxmimum steps in total
+    print_fre = 10000
 
+    # Calculate the optimal policy and run the game with it
+    Q_values, acc_reward = Q_learning(env, it_max_num,  print_fre)
+    run_optimal(env, env.actions, Q_values)
+
+    # Multiple running for polting
+    acc_reward = []
+    for i in range(10):
+        _, a_r = Q_learning(env, it_max_num, print_fre)
+        acc_reward.append(a_r)
+    acc_reward = np.array(acc_reward)
+    mean = np.mean(acc_reward, axis=0)
+    std = np.std(acc_reward, axis=0)
+    
+    # Plot
+    x = np.linspace(0, it_max_num, int(it_max_num / print_fre))
+    plt.plot(x, mean, label='T')
+    plt.fill_between(x, mean + std, mean - std, alpha=0.2)
+
+    plt.legend()
+    plt.show()
