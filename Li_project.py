@@ -18,13 +18,13 @@ def REINFORCE(env, n_e, pf):
     gamma = env.gamma # Discount factor
 
     # Input and problem setup | Initialize policy parameters and compute initial policy
-    theta = _init_theta(walls, markers, actions, X, Y) # Initialize policy parameter vector theta(s, a)
-    policy = _compute_policy(actions, theta) # Computer policy using soft-max
+    theta = {} # Initialize policy parameter vector theta(s, a)
+    policy = {} # Computer policy using soft-max
 
     # Hyperparameters    
     alpha = 0.5 # Step size
     N = n_e # Number of episodes
-    H = 5 / (1 - gamma) # Maximum length of an episode
+    H = 1 / (1 - gamma) # Maximum length of an episode: 5 / (1 - gamma)
 
     # Other parameters
     episode_counter = 0 # To count the number of total episodes
@@ -41,7 +41,7 @@ def REINFORCE(env, n_e, pf):
         s = env.reset()
         t = False # Termination status
         while t is not True:
-            a = get_action(policy, s, actions) # Get action from the current policy
+            a = get_action(policy, theta, s, actions) # Get action from the current policy
             t, r, s_1 = env.step(s, a) # Get termination state, reward and next state from env
             episode_steps += 1
             if episode_steps > H:
@@ -55,60 +55,55 @@ def REINFORCE(env, n_e, pf):
         for i in range(len(episode) - 1, -1, -1): # From T-1 to 0
             G = gamma * G + episode[i][2]
             # Update theta
-            for s in states:
-                for a in actions:
-                    if s == episode[i][0] and a == episode[i][1]:
-                        theta[s,a] = theta[s,a] + alpha * gamma**i * G * (1 - policy[s,a])
-                    elif s == episode[i][0] and a != episode[i][1]:
-                        theta[s,a] = theta[s,a] + alpha * gamma**i * G * (- policy[s,a])
-                    else:
-                        pass
+            s = episode[i][0]
+            for a in actions:
+                s_a = ''.join(np.append(s,a))
+                if s_a not in theta:
+                    theta[s_a] = 0
+                if a == episode[i][1]:
+                    theta[s_a] = theta[s_a] + alpha * gamma**i * G * (1 - policy[s_a])
+                elif a != episode[i][1]:
+                    theta[s_a] = theta[s_a] + alpha * gamma**i * G * (- policy[s_a])
+                else:
+                    pass
             # Compute policy
-            policy = _compute_policy(states, actions, theta)
+            policy = _compute_policy(policy, actions, s, theta)
         
         # For print and reward scaling 
         if episode_counter % print_fre == 0:
             acc_reward[ind_r] /= print_fre
+            print('Total episode number: ', episode_counter, len(policy), acc_reward[ind_r])
             ind_r += 1
-            print('Total episode number: ', episode_counter)
+            
+    return policy, theta, acc_reward
 
-    return policy, acc_reward
-    
-def _init_theta(walls, markers, actions, X, Y):
-    theta = {}
-    for x in range(X):
-        for y in range(Y):
-            if [x, y] in walls:
-                pass
-            else:
-                for i in range(4):
-                    for a in actions:
-                        theta[(i, x, y), a] = 0
-                        theta[(i, x, y), a] = 0 
-    return theta
-
-def _compute_policy(states, actions, theta):
-    policy = {}
+def _compute_policy(policy, actions, s, theta):
     sum = 0
-    for s in states:
-        for a in actions:
-            sum += math.exp(theta[s,a])
-        for a in actions:
-            policy[s,a] = math.exp(theta[s,a]) / sum
-        sum = 0
+    for a in actions:
+        s_a = ''.join(np.append(s,a))
+        if s_a not in theta:
+            theta[s_a] = 0
+        sum += math.exp(theta[s_a])
+    for a in actions:
+        s_a = ''.join(np.append(s,a))
+        policy[s_a] = math.exp(theta[s_a]) / sum
+    sum = 0
     return policy
 
-def get_action(policy, s, actions):
+def get_action(policy, theta, s, actions):
     next_action_prob = []
     next_actions = actions
     for a in actions:
-        next_action_prob.append(policy[s, a])
+        s_a = ''.join(np.append(s,a))
+        if s_a not in policy:
+            policy = _compute_policy(policy, actions, s, theta)
+        next_action_prob.append(policy[s_a])
     # Pick the action based on probability
     action = np.random.choice(a=next_actions, size=1, replace=True, p=next_action_prob)
     return action
 
 # Run the game with optimal policy
-def run_optimal(env, actions, policy):
+def run_optimal(env, actions, policy, theta):
     print()
     print("** Best Sequence of Commands **")
     
@@ -117,7 +112,7 @@ def run_optimal(env, actions, policy):
     env.render(s)
     
     while True:
-        a = get_action(policy, s, actions)
+        a = get_action(policy, theta, s, actions)
         t, r, s_1 = env.step(s, a)
         s = s_1
         print("Action:", a, "/ Reward:", r)       
@@ -137,7 +132,7 @@ if __name__ == '__main__':
     acc_reward = []
 
     # Try to get the optimal policy
-    policy, a_r = REINFORCE(env, number_of_episodes,  print_fre)
+    policy, theta, a_r = REINFORCE(env, number_of_episodes,  print_fre)
 
     # Multiple running for ploting
     x = np.linspace(0, number_of_episodes, int(number_of_episodes / print_fre))
@@ -155,5 +150,28 @@ if __name__ == '__main__':
     plt.show()
 
     # Generate the best sequence
-    r = run_optimal(env, env.actions, policy)
+    # r = run_optimal(env, env.actions, policy, theta)
 
+# def _init_theta(walls, markers, actions, X, Y):
+#     theta = {}
+#     for x in range(X):
+#         for y in range(Y):
+#             if [x, y] in walls:
+#                 pass
+#             else:
+#                 for i in range(4):
+#                     for a in actions:
+#                         theta[(i, x, y), a] = 0
+#                         theta[(i, x, y), a] = 0 
+#     return theta
+
+# def _compute_policy(states, actions, theta):
+#     policy = {}
+#     sum = 0
+#     for s in states:
+#         for a in actions:
+#             sum += math.exp(theta[s,a])
+#         for a in actions:
+#             policy[s,a] = math.exp(theta[s,a]) / sum
+#         sum = 0
+#     return policy

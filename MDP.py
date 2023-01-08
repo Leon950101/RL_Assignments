@@ -20,15 +20,16 @@ class MyKarel_1:
         self.actions = ["m", "l", "r", "pk", "pt", "f"] # Action space: move, turnLeft, turnRight, pickMarker, putMarker, finish
         self.walls = [[1, 0], [1, 1], [1, 2], [2, 0], [2, 1], [2, 2], [3, 0], [3, 1], [3, 2], [3, 3]] # Set walls
         self.markers = [] # Set markers
+        self.preMarkers = []
+        self.postMarkers = [[0, 3]]
         self.x, self.y = 4, 4 # 6*6 grid world
         # State: d: 0/1/2/3: west/south/east/north | x/y: 0-3 | state_map: 0/1/2 empty/wall/marker 
         self.s_0 = self._init_state_map([3, 2, 3]) # Init state
-        self.s_f = self._init_state_map([0, 0, 1]) # Target state 
+        self.s_f = self._init_state_map([3, 1, 3]) # Target state 
         self.gamma = 0.99 # For reward discount, not needed for episodic task
         # Reward function
         self.r_minus = -0.1 # Terminations
-        self.r_normal = 0 # Normal move
-        self.r_small = 0.1 # Small reward
+        self.r_normal = -0.01 # Normal move
         self.r_positive = 1 # Finish the task
 
     def _init_state_map(self, agent_position):
@@ -146,7 +147,7 @@ class MyKarel_1:
         if a == "f" : # Action "finish"
             t = True
             # If the agent at target grid with the specific MARKER picked/put: return positive reward (1);
-            if s_1[0] == self.s_f[0] and s_1[1] == self.s_f[1] and s_1[2] == self.s_f[2] and len(self.markers) == 1 and [0,3] in self.markers: r = self.r_positive
+            if s_1[0] == self.s_f[0] and s_1[1] == self.s_f[1] and s_1[2] == self.s_f[2]: r = self.r_positive # self.markers = [] # Set markers
             # Else: return minus reward (-0.1)
             else: r = self.r_minus
         

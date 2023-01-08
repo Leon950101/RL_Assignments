@@ -2,6 +2,20 @@ import json
 import random
 import numpy as np
  
+# {
+#   "gridsz_num_rows": 4,
+#   "gridsz_num_cols": 4,
+#   "pregrid_agent_row": 2,
+#   "pregrid_agent_col": 3,
+#   "pregrid_agent_dir": "north",
+#   "postgrid_agent_row": 0,
+#   "postgrid_agent_col": 1,
+#   "postgrid_agent_dir": "west",
+#   "walls": [[1, 0], [1, 1], [1, 2], [2, 0], [2, 1], [2, 2], [3, 0], [3, 1], [3, 2], [3, 3]],
+#   "pregrid_markers": [],
+#   "postgrid_markers": [[0, 3]]
+# }
+
 def init_state_map(agent_position, w, m):
     state_map = np.zeros((4, 4), dtype=int)
     for x in range(4):
@@ -27,19 +41,5 @@ d_f, x_f, y_f = dir[fcc_data["postgrid_agent_dir"]], fcc_data["postgrid_agent_ro
 s_0 = init_state_map([d_0, x_0, y_0], w, m_pregrid) # Init state
 s_f = init_state_map([d_f, x_f, y_f], w, m_postgrid) # Target state 
 
-print(w, s_0)
-
-
-# {
-#   "gridsz_num_rows": 4,
-#   "gridsz_num_cols": 4,
-#   "pregrid_agent_row": 2,
-#   "pregrid_agent_col": 3,
-#   "pregrid_agent_dir": "north",
-#   "postgrid_agent_row": 0,
-#   "postgrid_agent_col": 1,
-#   "postgrid_agent_dir": "west",
-#   "walls": [[1, 0], [1, 1], [1, 2], [2, 0], [2, 1], [2, 2], [3, 0], [3, 1], [3, 2], [3, 3]],
-#   "pregrid_markers": [],
-#   "postgrid_markers": [[0, 3]]
-# }
+print(s_0)
+print(s_f)
