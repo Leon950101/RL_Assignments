@@ -1,43 +1,26 @@
 # cd Documents/New/Courses/RL/Project/code/
 
-# {
-#   "gridsz_num_rows": 4,
-#   "gridsz_num_cols": 4,
-#   "pregrid_agent_row": 2,
-#   "pregrid_agent_col": 3,
-#   "pregrid_agent_dir": "north",
-#   "postgrid_agent_row": 0,
-#   "postgrid_agent_col": 1,
-#   "postgrid_agent_dir": "west",
-#   "walls": [[1, 0], [1, 1], [1, 2], [2, 0], [2, 1], [2, 2], [3, 0], [3, 1], [3, 2], [3, 3]],
-#   "pregrid_markers": [],
-#   "postgrid_markers": [[0, 3]]
-# }
 import numpy as np
+import json
+import random
+
 class MyKarel_1:
 
     def __init__(self):
         self.actions = ["m", "l", "r", "pk", "pt", "f"] # Action space: move, turnLeft, turnRight, pickMarker, putMarker, finish
-        self.walls = [[1, 0], [1, 1], [1, 2], [2, 0], [2, 1], [2, 2], [3, 0], [3, 1], [3, 2], [3, 3]] # Set walls
-        self.markers = [] # Set markers
-        self.preMarkers = []
-        self.postMarkers = [[0, 3]]
-        self.x, self.y = 4, 4 # 6*6 grid world
-        # State: d: 0/1/2/3: west/south/east/north | x/y: 0-3 | state_map: 0/1/2 empty/wall/marker 
-        self.s_0 = self._init_state_map([3, 2, 3]) # Init state
-        self.s_f = self._init_state_map([3, 1, 3]) # Target state 
         self.gamma = 0.99 # For reward discount, not needed for episodic task
         # Reward function
         self.r_minus = -0.1 # Terminations
         self.r_normal = -0.01 # Normal move
         self.r_positive = 1 # Finish the task
 
-    def _init_state_map(self, agent_position):
+    def _init_state_map(self, agent_position, w, m):
+         # State: d: 0/1/2/3: west/south/east/north | x/y: 0-3 | state_map: 0/1/2 empty/wall/marker 
         state_map = np.zeros((4, 4), dtype=int)
         for x in range(4):
             for y in range(4):
-                if [x, y] in self.walls: state_map[x][y] = 1
-                elif [x, y] in self.markers: state_map[x][y] = 2
+                if [x, y] in w: state_map[x][y] = 1
+                elif [x, y] in m: state_map[x][y] = 2
                 else: state_map[x][y] = 0
         flatten = state_map.flatten()
         state = np.concatenate((agent_position, flatten))
@@ -45,8 +28,19 @@ class MyKarel_1:
     
     # Reset environment
     def reset(self):
-        self.markers = []
-        self.s_0 = self._init_state_map([3, 2, 3]) # Init state
+        env_id = random.randint(0, 0) # 23999
+        with open('data/train/task/'+str(env_id)+'_task.json', 'r') as fcc_file:
+            fcc_data = json.load(fcc_file)
+        self.walls = fcc_data["walls"] # Set walls
+        self.preMarkers = fcc_data["pregrid_markers"]
+        self.postMarkers = fcc_data["postgrid_markers"]
+        self.markers = fcc_data["pregrid_markers"] # Set markers
+        self.x, self.y = fcc_data["gridsz_num_rows"], fcc_data["gridsz_num_cols"]
+        dir = {"west":0, "south":1, "east":2, "north":3}
+        d_0, x_0, y_0 = dir[fcc_data["pregrid_agent_dir"]], fcc_data["pregrid_agent_row"], fcc_data["pregrid_agent_col"]
+        d_f, x_f, y_f = dir[fcc_data["postgrid_agent_dir"]], fcc_data["postgrid_agent_row"], fcc_data["postgrid_agent_col"]
+        self.s_0 = self._init_state_map([d_0, x_0, y_0], self.walls, self.preMarkers) # Init state
+        self.s_f = self._init_state_map([d_f, x_f, y_f], self.walls, self.postMarkers) # Target state 
         return self.s_0 # Set init state to the agent
 
     # Transition probability function
@@ -204,3 +198,18 @@ if __name__ == '__main__':
    
     play = MyKarel_1()
     play.run()
+
+# Env example
+# {
+#   "gridsz_num_rows": 4,
+#   "gridsz_num_cols": 4,
+#   "pregrid_agent_row": 2,
+#   "pregrid_agent_col": 3,
+#   "pregrid_agent_dir": "north",
+#   "postgrid_agent_row": 0,
+#   "postgrid_agent_col": 1,
+#   "postgrid_agent_dir": "west",
+#   "walls": [[1, 0], [1, 1], [1, 2], [2, 0], [2, 1], [2, 2], [3, 0], [3, 1], [3, 2], [3, 3]],
+#   "pregrid_markers": [],
+#   "postgrid_markers": [[0, 3]]
+# }

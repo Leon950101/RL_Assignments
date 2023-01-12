@@ -11,10 +11,6 @@ def REINFORCE(env, n_e, pf):
     
     # Information from the enviornment
     actions = env.actions # Action space
-    walls = env.walls # WALL setting
-    markers = env.markers # MARKER setting
-    X = env.x # Coordinate X
-    Y = env.y # Coordinate Y
     gamma = env.gamma # Discount factor
 
     # Input and problem setup | Initialize policy parameters and compute initial policy
@@ -39,6 +35,10 @@ def REINFORCE(env, n_e, pf):
         episode_steps = 0 # Count episode steps
 
         s = env.reset()
+        walls = env.walls # WALL setting
+        markers = env.markers # MARKER setting
+        X = env.x # Coordinate X
+        Y = env.y # Coordinate Y
         t = False # Termination status
         while t is not True:
             a = get_action(policy, theta, s, actions) # Get action from the current policy
@@ -59,7 +59,7 @@ def REINFORCE(env, n_e, pf):
             for a in actions:
                 s_a = ''.join(np.append(s,a))
                 if s_a not in theta:
-                    theta[s_a] = 0
+                    theta[s_a] = np.random.rand() / 1000
                 if a == episode[i][1]:
                     theta[s_a] = theta[s_a] + alpha * gamma**i * G * (1 - policy[s_a])
                 elif a != episode[i][1]:
@@ -82,7 +82,7 @@ def _compute_policy(policy, actions, s, theta):
     for a in actions:
         s_a = ''.join(np.append(s,a))
         if s_a not in theta:
-            theta[s_a] = 0
+            theta[s_a] = np.random.rand() / 1000
         sum += math.exp(theta[s_a])
     for a in actions:
         s_a = ''.join(np.append(s,a))
