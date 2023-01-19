@@ -62,7 +62,7 @@ class Gridworld(gym.Env):
         # Example for using image as input (channel-first; channel-last also works):
         # observation_space = spaces.Box(low=0, high=255, shape=(HEIGHT, WIDTH, N_CHANNELS), dtype=np.uint8)
         self.observation_space = spaces.Box(low=0, high=4, 
-                                            shape=(22, ), dtype=np.float32) # TODO maybe float with noise (random.rand()/10.0)make the model more robust
+                                            shape=(38, ), dtype=np.float32) # TODO maybe float with noise (random.rand()/10.0)make the model more robust
     
     # def __call__(self):
     #     pass
@@ -76,19 +76,23 @@ class Gridworld(gym.Env):
         #             agent_map[x][y] = agent_position[0] + 1
         # flt_agent = agent_map.flatten()
         # State: d: 0/1/2/3: west/south/east/north | x/y: 0-3
-        # state_map = np.zeros((4, 4), dtype=int)
+        state_map = np.zeros((4, 4), dtype=int)
+        for x in range(4):
+            for y in range(4):
+                if [x, y] in w: state_map[x][y] = 1
+                elif [x, y] in m: state_map[x][y] = 2
+                else: state_map[x][y] = 0
+        flt_state = state_map.flatten()
 
         s_f_map = np.zeros((4, 4), dtype=int)
         for x in range(4):
             for y in range(4):
                 if [x, y] in w: s_f_map[x][y] = 1
-                elif [x, y] in m and [x, y] in post_m: s_f_map[x][y] = 2
-                elif [x, y] in m and [x, y] not in post_m: s_f_map[x][y] = 3
-                elif [x, y] not in m and [x, y] in post_m: s_f_map[x][y] = 4
+                elif [x, y] in post_m: s_f_map[x][y] = 2
                 else: s_f_map[x][y] = 0
         flt_s_f = s_f_map.flatten()
 
-        state = np.concatenate((agent_position, flt_s_f, s_f))
+        state = np.concatenate((agent_position, flt_state, s_f, flt_s_f))
         return state
 
     def _get_agent_position(self):
@@ -103,7 +107,7 @@ class Gridworld(gym.Env):
 
     def reset(self):
         # Randomly
-        self.env_index = random.randint(0, 23999) # 0, 23999 
+        self.env_index = random.randint(0, 99) # 0, 23999 
         
         # Sequencially
         # if self.env_index < 99: # 23999
@@ -318,4 +322,3 @@ if __name__ == '__main__':
     env = Gridworld()
     # check_env(env)
     env.run()
-
