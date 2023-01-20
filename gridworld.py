@@ -61,13 +61,11 @@ class Gridworld(gym.Env):
         self.action_space = spaces.Discrete(n_actions)
         # Example for using image as input (channel-first; channel-last also works):
         # observation_space = spaces.Box(low=0, high=255, shape=(HEIGHT, WIDTH, N_CHANNELS), dtype=np.uint8)
-        self.observation_space = spaces.Box(low=0, high=4, 
-                                            shape=(22, ), dtype=np.float32) # TODO maybe float with noise (random.rand()/10.0)make the model more robust
-    
-    # def __call__(self):
-    #     pass
+        # maybe float with noise (random.rand()/10.0)make the model more robust
+        self.observation_space = spaces.Box(low=0, high=4, shape=(22, ), dtype=np.float32) # 38
     
     def _get_state_map(self, agent_position, s_f, w, m, post_m):
+        # part of 32
         # Agent: agent_position 1/2/3/4 - w/s/e/n other 0
         # agent_map = np.zeros((4, 4), dtype=int)
         # for x in range(4):
@@ -77,7 +75,27 @@ class Gridworld(gym.Env):
         # flt_agent = agent_map.flatten()
         # State: d: 0/1/2/3: west/south/east/north | x/y: 0-3
         # state_map = np.zeros((4, 4), dtype=int)
+        
+        # 38: 44 min / 4 million
+        # state_map = np.zeros((4, 4), dtype=int)
+        # for x in range(4):
+        #     for y in range(4):
+        #         if [x, y] in w: state_map[x][y] = 1
+        #         elif [x, y] in m: state_map[x][y] = 2
+        #         else: state_map[x][y] = 0
+        # flt_state = state_map.flatten()
 
+        # s_f_map = np.zeros((4, 4), dtype=int)
+        # for x in range(4):
+        #     for y in range(4):
+        #         if [x, y] in w: s_f_map[x][y] = 1
+        #         elif [x, y] in post_m: s_f_map[x][y] = 2
+        #         else: s_f_map[x][y] = 0
+        # flt_s_f = s_f_map.flatten()
+ 
+        # state = np.concatenate((agent_position, flt_state, s_f, flt_s_f))
+        
+        # 22: 39 min / 4 million
         s_f_map = np.zeros((4, 4), dtype=int)
         for x in range(4):
             for y in range(4):
@@ -92,6 +110,7 @@ class Gridworld(gym.Env):
         return state
 
     def _get_agent_position(self):
+        # part of 32
         # State: d: 0/1/2/3: west/south/east/north | x/y: 0-3
         # for i in range(16):
         #     if state[i] > 0:
@@ -106,7 +125,7 @@ class Gridworld(gym.Env):
         self.env_index = random.randint(0, 23999) # 0, 23999 
         
         # Sequencially
-        # if self.env_index < 99: # 23999
+        # if self.env_index < 23999: # 23999
         #     self.env_index += 1
         # else:
         #     self.env_index = 0
@@ -139,6 +158,30 @@ class Gridworld(gym.Env):
         
         self.env_index = map_index
         with open('data/train/task/'+str(map_index)+'_task.json', 'r') as fcc_file_task: # TODO, read once to speed up
+            fcc_data_task = json.load(fcc_file_task)
+        
+        self.x, self.y = fcc_data_task["gridsz_num_rows"], fcc_data_task["gridsz_num_cols"]
+        self.walls = fcc_data_task["walls"] # Set walls
+        self.preMarkers = fcc_data_task["pregrid_markers"]
+        self.postMarkers = fcc_data_task["postgrid_markers"]
+        self.markers = self.preMarkers
+        dir = {"west":0, "south":1, "east":2, "north":3}
+        d_0, x_0, y_0 = dir[fcc_data_task["pregrid_agent_dir"]], fcc_data_task["pregrid_agent_row"], fcc_data_task["pregrid_agent_col"]
+        d_f, x_f, y_f = dir[fcc_data_task["postgrid_agent_dir"]], fcc_data_task["postgrid_agent_row"], fcc_data_task["postgrid_agent_col"]
+        self.s_0 = self._get_state_map([d_0, x_0, y_0], [d_f, x_f, y_f], self.walls, self.preMarkers, self.postMarkers) # Init state
+        self.s_f = self._get_state_map([d_f, x_f, y_f], [d_f, x_f, y_f], self.walls, self.postMarkers, self.postMarkers) # Target state
+        self.state = self.s_0 # Set init state to the agent
+
+        self.if_eva = True # For distinguish Train and Test 
+        self.ep_step = 0 # Episode step counter
+
+        return self.state
+    
+    # For evaluation
+    def reset_val(self, map_index):
+        
+        self.env_index = map_index
+        with open('data/val/task/'+str(map_index)+'_task.json', 'r') as fcc_file_task: # TODO, read once to speed up
             fcc_data_task = json.load(fcc_file_task)
         
         self.x, self.y = fcc_data_task["gridsz_num_rows"], fcc_data_task["gridsz_num_cols"]
@@ -252,9 +295,12 @@ class Gridworld(gym.Env):
             d_f, x_f, y_f = self.s_f[0:3]
             self.state = self._get_state_map([d, x, y], [d_f, x_f, y_f], self.walls, self.markers, self.postMarkers)
             # If the agent at target grid with the specific MARKER picked/put: return positive reward (1);
-            if (self.state == self.s_f).all(): r = self.rewards["positive"]
+            if (self.state == self.s_f).all(): 
+                r = self.rewards["positive"]
+                # print("Got one! {}".format(self.env_index))
             # Else: return minus reward (-0.1)
-            else: r = self.rewards["minus"]
+            else: 
+                r = self.rewards["minus"]
         
         else:
             raise ValueError("Received invalid action={} which is not part of the action space".format(a))
