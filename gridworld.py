@@ -200,6 +200,54 @@ class Gridworld(gym.Env):
         self.ep_step = 0 # Episode step counter
 
         return self.state
+   
+    # For test
+    def reset_test(self, map_index):
+        
+        self.env_index = map_index
+        with open('data/test/task/'+str(map_index)+'_task.json', 'r') as fcc_file_task: # TODO, read once to speed up
+            fcc_data_task = json.load(fcc_file_task)
+        
+        self.x, self.y = fcc_data_task["gridsz_num_rows"], fcc_data_task["gridsz_num_cols"]
+        self.walls = fcc_data_task["walls"] # Set walls
+        self.preMarkers = fcc_data_task["pregrid_markers"]
+        self.postMarkers = fcc_data_task["postgrid_markers"]
+        self.markers = self.preMarkers
+        dir = {"west":0, "south":1, "east":2, "north":3}
+        d_0, x_0, y_0 = dir[fcc_data_task["pregrid_agent_dir"]], fcc_data_task["pregrid_agent_row"], fcc_data_task["pregrid_agent_col"]
+        d_f, x_f, y_f = dir[fcc_data_task["postgrid_agent_dir"]], fcc_data_task["postgrid_agent_row"], fcc_data_task["postgrid_agent_col"]
+        self.s_0 = self._get_state_map([d_0, x_0, y_0], [d_f, x_f, y_f], self.walls, self.preMarkers, self.postMarkers) # Init state
+        self.s_f = self._get_state_map([d_f, x_f, y_f], [d_f, x_f, y_f], self.walls, self.postMarkers, self.postMarkers) # Target state
+        self.state = self.s_0 # Set init state to the agent
+
+        self.if_eva = True # For distinguish Train and Test 
+        self.ep_step = 0 # Episode step counter
+
+        return self.state
+
+
+    # For test
+    def reset_file(self, file):
+        
+        with open(file, 'r') as fcc_file_task: # TODO, read once to speed up
+            fcc_data_task = json.load(fcc_file_task)
+        
+        self.x, self.y = fcc_data_task["gridsz_num_rows"], fcc_data_task["gridsz_num_cols"]
+        self.walls = fcc_data_task["walls"] # Set walls
+        self.preMarkers = fcc_data_task["pregrid_markers"]
+        self.postMarkers = fcc_data_task["postgrid_markers"]
+        self.markers = self.preMarkers
+        dir = {"west":0, "south":1, "east":2, "north":3}
+        d_0, x_0, y_0 = dir[fcc_data_task["pregrid_agent_dir"]], fcc_data_task["pregrid_agent_row"], fcc_data_task["pregrid_agent_col"]
+        d_f, x_f, y_f = dir[fcc_data_task["postgrid_agent_dir"]], fcc_data_task["postgrid_agent_row"], fcc_data_task["postgrid_agent_col"]
+        self.s_0 = self._get_state_map([d_0, x_0, y_0], [d_f, x_f, y_f], self.walls, self.preMarkers, self.postMarkers) # Init state
+        self.s_f = self._get_state_map([d_f, x_f, y_f], [d_f, x_f, y_f], self.walls, self.postMarkers, self.postMarkers) # Target state
+        self.state = self.s_0 # Set init state to the agent
+
+        self.if_eva = True # For distinguish Train and Test 
+        self.ep_step = 0 # Episode step counter
+
+        return self.state
 
     def step(self, a):
         a_p = self._get_agent_position()
