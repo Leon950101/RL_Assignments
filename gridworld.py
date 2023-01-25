@@ -44,6 +44,7 @@ class Gridworld(gym.Env):
         # Reward function
         self.rewards = {"minus": -0.1, "normal": 0, "medium": 0.1, "positive": 1}
         self.env_index = -1 # Enviornment index
+        self.total_step = 0
 
         # self.walls = []
         # self.markers = []
@@ -58,7 +59,9 @@ class Gridworld(gym.Env):
         # They must be gym.spaces objects
         # Example when using discrete actions:
         n_actions = len(self.actions)
-        self.action_space = spaces.Discrete(n_actions)
+        self.action_space = spaces.Discrete(n_actions) # For PPO A2C
+        # self.action_space = spaces.Box(low=0, high=0.999, shape=(1, ), dtype=np.float32) # For DDPG
+
         # Example for using image as input (channel-first; channel-last also works):
         # observation_space = spaces.Box(low=0, high=255, shape=(HEIGHT, WIDTH, N_CHANNELS), dtype=np.uint8)
         # maybe float with noise (random.rand()/10.0)make the model more robust
@@ -121,20 +124,38 @@ class Gridworld(gym.Env):
         return self.state[0:3]
 
     def reset(self):
-        # Randomly
-        self.env_index = random.randint(0, 23999) # 0, 23999 
-        
+
         # Sequencially
-        # if self.env_index < 23999: # 23999
+        # if self.env_index < 23999:
         #     self.env_index += 1
         # else:
         #     self.env_index = 0
 
-        with open('data/train/task/'+str(self.env_index)+'_task.json', 'r') as fcc_file_task:
+        # Randomly
+        self.env_index = random.randint(0, 11999) # 3999, 11999, 23999
+
+        with open('data_medium/train/task/'+str(self.env_index)+'_task.json', 'r') as fcc_file_task:
             fcc_data_task = json.load(fcc_file_task)
-        with open('data/train/seq/'+str(self.env_index)+'_seq.json', 'r') as fcc_file_seq:
-            fcc_data_seq = json.load(fcc_file_seq)
-        self.op_se = fcc_data_seq["sequence"]
+        # with open('data/train/seq/'+str(self.env_index)+'_seq.json', 'r') as fcc_file_seq:
+        #     fcc_data_seq = json.load(fcc_file_seq)
+        # self.op_se = fcc_data_seq["sequence"]
+
+        # Curiculumm Design
+        # if self.total_step < 500000:
+        #     # Randomly
+        #     self.env_index = random.randint(0, 3999) # 3999, 11999, 23999
+        #     with open('data_easy/train/task/'+str(self.env_index)+'_task.json', 'r') as fcc_file_task:
+        #         fcc_data_task = json.load(fcc_file_task)
+        # elif self.total_step < 2000000:
+        #     # Randomly
+        #     self.env_index = random.randint(0, 11999) # 3999, 11999, 23999
+        #     with open('data_medium/train/task/'+str(self.env_index)+'_task.json', 'r') as fcc_file_task:
+        #         fcc_data_task = json.load(fcc_file_task)
+        # else:
+        #     # Randomly
+        #     self.env_index = random.randint(0, 23999) # 3999, 11999, 23999
+        #     with open('data/train/task/'+str(self.env_index)+'_task.json', 'r') as fcc_file_task:
+        #         fcc_data_task = json.load(fcc_file_task)
         
         self.x, self.y = fcc_data_task["gridsz_num_rows"], fcc_data_task["gridsz_num_cols"]
         self.walls = fcc_data_task["walls"] # Set walls
@@ -153,11 +174,11 @@ class Gridworld(gym.Env):
 
         return self.state
 
-    # For testing
-    def reset_with_map_index(self, map_index):
+    # For test
+    def reset_val(self, map_index, label):
         
         self.env_index = map_index
-        with open('data/train/task/'+str(map_index)+'_task.json', 'r') as fcc_file_task: # TODO, read once to speed up
+        with open('data/'+label+'/task/'+str(map_index)+'_task.json', 'r') as fcc_file_task: # TODO, read once to speed up
             fcc_data_task = json.load(fcc_file_task)
         
         self.x, self.y = fcc_data_task["gridsz_num_rows"], fcc_data_task["gridsz_num_cols"]
@@ -177,77 +198,28 @@ class Gridworld(gym.Env):
 
         return self.state
     
-    # For evaluation
-    def reset_val(self, map_index):
+    # For I.5
+    # def reset_file(self, file):
         
-        self.env_index = map_index
-        with open('data/val/task/'+str(map_index)+'_task.json', 'r') as fcc_file_task: # TODO, read once to speed up
-            fcc_data_task = json.load(fcc_file_task)
+    #     with open(file, 'r') as fcc_file_task: # TODO, read once to speed up
+    #         fcc_data_task = json.load(fcc_file_task)
         
-        self.x, self.y = fcc_data_task["gridsz_num_rows"], fcc_data_task["gridsz_num_cols"]
-        self.walls = fcc_data_task["walls"] # Set walls
-        self.preMarkers = fcc_data_task["pregrid_markers"]
-        self.postMarkers = fcc_data_task["postgrid_markers"]
-        self.markers = self.preMarkers
-        dir = {"west":0, "south":1, "east":2, "north":3}
-        d_0, x_0, y_0 = dir[fcc_data_task["pregrid_agent_dir"]], fcc_data_task["pregrid_agent_row"], fcc_data_task["pregrid_agent_col"]
-        d_f, x_f, y_f = dir[fcc_data_task["postgrid_agent_dir"]], fcc_data_task["postgrid_agent_row"], fcc_data_task["postgrid_agent_col"]
-        self.s_0 = self._get_state_map([d_0, x_0, y_0], [d_f, x_f, y_f], self.walls, self.preMarkers, self.postMarkers) # Init state
-        self.s_f = self._get_state_map([d_f, x_f, y_f], [d_f, x_f, y_f], self.walls, self.postMarkers, self.postMarkers) # Target state
-        self.state = self.s_0 # Set init state to the agent
+    #     self.x, self.y = fcc_data_task["gridsz_num_rows"], fcc_data_task["gridsz_num_cols"]
+    #     self.walls = fcc_data_task["walls"] # Set walls
+    #     self.preMarkers = fcc_data_task["pregrid_markers"]
+    #     self.postMarkers = fcc_data_task["postgrid_markers"]
+    #     self.markers = self.preMarkers
+    #     dir = {"west":0, "south":1, "east":2, "north":3}
+    #     d_0, x_0, y_0 = dir[fcc_data_task["pregrid_agent_dir"]], fcc_data_task["pregrid_agent_row"], fcc_data_task["pregrid_agent_col"]
+    #     d_f, x_f, y_f = dir[fcc_data_task["postgrid_agent_dir"]], fcc_data_task["postgrid_agent_row"], fcc_data_task["postgrid_agent_col"]
+    #     self.s_0 = self._get_state_map([d_0, x_0, y_0], [d_f, x_f, y_f], self.walls, self.preMarkers, self.postMarkers) # Init state
+    #     self.s_f = self._get_state_map([d_f, x_f, y_f], [d_f, x_f, y_f], self.walls, self.postMarkers, self.postMarkers) # Target state
+    #     self.state = self.s_0 # Set init state to the agent
 
-        self.if_eva = True # For distinguish Train and Test 
-        self.ep_step = 0 # Episode step counter
+    #     self.if_eva = True # For distinguish Train and Test 
+    #     self.ep_step = 0 # Episode step counter
 
-        return self.state
-   
-    # For test
-    def reset_test(self, map_index):
-        
-        self.env_index = map_index
-        with open('data/test/task/'+str(map_index)+'_task.json', 'r') as fcc_file_task: # TODO, read once to speed up
-            fcc_data_task = json.load(fcc_file_task)
-        
-        self.x, self.y = fcc_data_task["gridsz_num_rows"], fcc_data_task["gridsz_num_cols"]
-        self.walls = fcc_data_task["walls"] # Set walls
-        self.preMarkers = fcc_data_task["pregrid_markers"]
-        self.postMarkers = fcc_data_task["postgrid_markers"]
-        self.markers = self.preMarkers
-        dir = {"west":0, "south":1, "east":2, "north":3}
-        d_0, x_0, y_0 = dir[fcc_data_task["pregrid_agent_dir"]], fcc_data_task["pregrid_agent_row"], fcc_data_task["pregrid_agent_col"]
-        d_f, x_f, y_f = dir[fcc_data_task["postgrid_agent_dir"]], fcc_data_task["postgrid_agent_row"], fcc_data_task["postgrid_agent_col"]
-        self.s_0 = self._get_state_map([d_0, x_0, y_0], [d_f, x_f, y_f], self.walls, self.preMarkers, self.postMarkers) # Init state
-        self.s_f = self._get_state_map([d_f, x_f, y_f], [d_f, x_f, y_f], self.walls, self.postMarkers, self.postMarkers) # Target state
-        self.state = self.s_0 # Set init state to the agent
-
-        self.if_eva = True # For distinguish Train and Test 
-        self.ep_step = 0 # Episode step counter
-
-        return self.state
-
-
-    # For test
-    def reset_file(self, file):
-        
-        with open(file, 'r') as fcc_file_task: # TODO, read once to speed up
-            fcc_data_task = json.load(fcc_file_task)
-        
-        self.x, self.y = fcc_data_task["gridsz_num_rows"], fcc_data_task["gridsz_num_cols"]
-        self.walls = fcc_data_task["walls"] # Set walls
-        self.preMarkers = fcc_data_task["pregrid_markers"]
-        self.postMarkers = fcc_data_task["postgrid_markers"]
-        self.markers = self.preMarkers
-        dir = {"west":0, "south":1, "east":2, "north":3}
-        d_0, x_0, y_0 = dir[fcc_data_task["pregrid_agent_dir"]], fcc_data_task["pregrid_agent_row"], fcc_data_task["pregrid_agent_col"]
-        d_f, x_f, y_f = dir[fcc_data_task["postgrid_agent_dir"]], fcc_data_task["postgrid_agent_row"], fcc_data_task["postgrid_agent_col"]
-        self.s_0 = self._get_state_map([d_0, x_0, y_0], [d_f, x_f, y_f], self.walls, self.preMarkers, self.postMarkers) # Init state
-        self.s_f = self._get_state_map([d_f, x_f, y_f], [d_f, x_f, y_f], self.walls, self.postMarkers, self.postMarkers) # Target state
-        self.state = self.s_0 # Set init state to the agent
-
-        self.if_eva = True # For distinguish Train and Test 
-        self.ep_step = 0 # Episode step counter
-
-        return self.state
+    #     return self.state
 
     def step(self, a):
         a_p = self._get_agent_position()
@@ -257,8 +229,9 @@ class Gridworld(gym.Env):
         r = 0 # Reward
         info = {}
 
+        self.total_step += 1
         self.ep_step +=1
-        if self.ep_step > 100: # H = 500 Control the length of episode
+        if self.ep_step > 500: # H = 500 Control the length of episode
             return self.state, r, t, info
 
         if self.if_eva is True:
@@ -267,7 +240,10 @@ class Gridworld(gym.Env):
             # a = self.action_dir[self.op_se[self.ep_step]]
             # self.ep_step += 1
             pass
-
+        
+        # print(a, end=" ")
+        # a = (np.floor(a*6)).astype(int) # For DDPG
+        # print(a)
         if a == self.MOVE : # Action "move"
             if d == 0: # To west
                 if (y-1) < 0 or [x, y-1] in self.walls: # Cross the edge or Hit the wall: termination and return minus reward (-0.1)
@@ -386,7 +362,7 @@ class Gridworld(gym.Env):
 
     def close(self):
         pass
-
+    
     # Run the game
     def run(self):
         termination = True
