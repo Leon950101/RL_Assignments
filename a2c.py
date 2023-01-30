@@ -9,7 +9,8 @@ from gridworld import Gridworld
 
 # env = Gridworld()
 env = make_vec_env(lambda: Gridworld(), n_envs=4)
-policy_kwargs=dict(optimizer_class=RMSpropTFLike, optimizer_kwargs=dict(eps=1e-5), activation_fn=th.nn.ReLU, net_arch=[128, 128]) 
+
+policy_kwargs=dict(activation_fn=th.nn.ReLU, net_arch=[128, 128], optimizer_class=RMSpropTFLike, optimizer_kwargs=dict(eps=1e-5)) 
 model = A2C("MlpPolicy", env, policy_kwargs=policy_kwargs, verbose=1)
 # Set new logger
 log_path = "log/"

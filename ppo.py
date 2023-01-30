@@ -11,14 +11,12 @@ from gridworld import Gridworld
 # env = Gridworld()
 # Paralell multiple envs, single env will act worse
 env = make_vec_env(lambda: Gridworld(), n_envs=4)
-# obs = env.reset()
 
 # Custom actor (pi) and value function (vf) networks of two layers of size 128 (default is 64) each with Relu activation function
 # Note: an extra linear layer will be added on top of the pi and the vf nets, respectively
 policy_kwargs = dict(activation_fn=th.nn.ReLU, net_arch=[128, 128])
 # Create the agent
 model = PPO("MlpPolicy", env, policy_kwargs=policy_kwargs, verbose=1)
-print(model.policy)
 # Set new logger for plot
 log_path = "log/"
 new_logger = configure(log_path, ["stdout", "json"]) # ["stdout", "csv", "log", "tensorboard", "json"]

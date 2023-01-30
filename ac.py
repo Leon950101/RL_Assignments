@@ -1,8 +1,9 @@
+# 6m 74%
 import numpy as np
 import time
 import json
 from itertools import count
-from collections import deque
+from collections import namedtuple
 
 import torch
 import torch.nn as nn
@@ -18,67 +19,82 @@ env.reset()
 input = env.observation_space.shape[0]
 # torch.manual_seed(543)
 
+SavedAction = namedtuple('SavedAction', ['log_prob', 'value'])
+
 class Policy(nn.Module):
 
     def __init__(self):
         super(Policy, self).__init__()
         self.affine1 = nn.Linear(input, 128)
         self.affine2 = nn.Linear(128, 128)
-        self.output_l = nn.Linear(128, 6)
-        
-        self.saved_log_probs = []
+        self.action_head = nn.Linear(128, 6) # Actor
+        self.value_head = nn.Linear(128, 1) # Critic
+
+        self.saved_actions = []
         self.rewards = []
 
     def forward(self, x):
         x = F.relu(self.affine1(x))
         x = F.relu(self.affine2(x))
-        action_prob = F.softmax(self.output_l(x), dim=1)
-        return action_prob
+        action_prob = F.softmax(self.action_head(x), dim=-1) # Actor: Probability of each action over the action space
+        state_values = self.value_head(x) # Critic: evaluates value being in the state s_t
+        return action_prob, state_values
 
 
 policy = Policy()
-optimizer = optim.Adam(policy.parameters(), lr=1e-4) # larger than this would fail the Normal learning (inifite loop)
+optimizer = optim.Adam(policy.parameters(), lr=5e-4) # RMSprop 1e-5
 # eps = np.finfo(np.float32).eps.item()
 
 def select_action(state, t, op_seq, total_step):
-    state = torch.from_numpy(state).float().unsqueeze(0)
+    state = torch.from_numpy(state).float()
     # Normal Learning
-    probs = policy(state)
+    probs, state_value = policy(state)
     m = Categorical(probs)
     action = m.sample()
     # Imitation Learning
-    if (total_step - 1) % 100000 < 10000: # as least 5% (5000/100000)
-        action = torch.tensor([env.action_dir[op_seq[t]]])
-    policy.saved_log_probs.append(m.log_prob(action))
+    if (total_step - 1) % 100000 < 20000: # as least 5% (5000/100000)
+        action = torch.tensor(env.action_dir[op_seq[t]])
+        if state_value > 0:
+            state_value = torch.tensor([state_value.item() * 2])
+        else:
+            state_value = torch.tensor([state_value.item() * 2])
+    policy.saved_actions.append(SavedAction(m.log_prob(action), state_value))
     return action.item()
 
 def select_action_val(state):
     state = torch.from_numpy(state).float().unsqueeze(0)
-    probs = policy(state)
+    probs, state_value = policy(state)
     m = Categorical(probs)
     action = m.sample()
     return action.item()
 
 def finish_episode():
     R = 0
-    policy_loss = []
-    returns = deque()
+    saved_actions = policy.saved_actions
+    policy_losses = [] # list to save actor (policy) loss
+    value_losses = [] # list to save critic (value) loss
+    returns = [] # list to save the true values
 
+    # calculate the true value using rewards returned from the environment
     for r in policy.rewards[::-1]:
         R = r + env.gamma * R
-        returns.appendleft(R)
+        returns.insert(0, R)
 
     returns = torch.tensor(returns)
     # returns = (returns - returns.mean()) / (returns.std() + eps)
-    for log_prob, R in zip(policy.saved_log_probs, returns):
-        policy_loss.append(-log_prob * R)
+    for (log_prob, value), R in zip(saved_actions, returns):
+        advantage = R - value.item()
+        policy_losses.append(-log_prob * advantage)
+        value_losses.append(F.smooth_l1_loss(value, torch.tensor([R])))
+
     optimizer.zero_grad()
-    policy_loss = torch.cat(policy_loss).sum()
-    policy_loss.backward()
+    all_loss = torch.stack(policy_losses).sum() + torch.stack(value_losses).sum()
+    all_loss.backward()
     optimizer.step()
+
     del policy.rewards[:]
-    del policy.saved_log_probs[:]
-    return policy_loss
+    del policy.saved_actions[:]
+    return all_loss
 
 def main():
     
@@ -86,6 +102,7 @@ def main():
     total_step = 0
     total_reward = []
     loss = 0
+    l_total_step = 0
     max_step = 10000000
     log_interval = 500
     start_time = time.time()
@@ -104,9 +121,10 @@ def main():
         running_reward = 0.001 * ep_reward + (1 - 0.001) * running_reward
         loss += finish_episode()
         if i_episode % log_interval == 0: # total_step
-            print('Total Step {}\tEpisode: {}\tAverage reward: {:.2f}\tLoss: {:.4f}'.format(
-                  total_step, i_episode, running_reward, loss))
+            print('Total Step {}| Episode: {}| Ep Length: {:.2f}| Average reward: {:.2f}| Loss: {:.4f}'.format(
+                  total_step, i_episode, (total_step-l_total_step)/log_interval, running_reward, loss))
             total_reward.append(running_reward)
+            l_total_step = total_step
             loss = 0
         if total_step > max_step:
             break
@@ -116,16 +134,16 @@ def main():
     print("Run Time: ", end="")
     print(run_time, end="")
     print("min")
-     
+
     t_r = json.dumps(total_reward)
-    with open('reward/reinforce_reward.json', 'w') as outfile:
+    with open('reward/ac_reward.json', 'w') as outfile:
         outfile.write(t_r)
 
     # Plot
     x = np.arange(log_interval, i_episode, log_interval, dtype=int)
     y = total_reward
     fig, axs = plt.subplots()
-    axs.plot(x, y, label="reinforce_average_reward")
+    axs.plot(x, y, label="ac_average_reward")
     # axs.fill_between(x, mean + 0.5*std, mean - 0.5*std, alpha=0.2)
 
     plt.legend()
@@ -173,3 +191,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+

@@ -29,7 +29,7 @@ def val(low, high, label, out=False):
             output["sequence"].append(actions_real[action])
             obs, reward, done, info = env.step(action)
             # env.render()
-            if T > 30: done = True # Control the length of output
+            if T > 100: done = True # Control the length of output
             if done:
                 # print("Env No." + str(i) + " is ", end="")
                 if reward == 1: # solved
