@@ -42,17 +42,17 @@ class Policy(nn.Module):
 
 
 policy = Policy()
-optimizer = optim.Adam(policy.parameters(), lr=5e-4) # RMSprop 1e-5
+optimizer = optim.Adam(policy.parameters(), lr=5e-4)
 # eps = np.finfo(np.float32).eps.item()
 
-def select_action(state, t, op_seq, total_step):
+def select_action(state, t, op_seq, total_step, il_period, il_percent):
     state = torch.from_numpy(state).float()
     # Normal Learning
     probs, state_value = policy(state)
     m = Categorical(probs)
     action = m.sample()
     # Imitation Learning
-    if (total_step - 1) % 100000 < 20000: # as least 5% (5000/100000)
+    if (total_step - 1) % il_period < int(il_period * il_percent): # as least 5% (5000/100000)
         action = torch.tensor(env.action_dir[op_seq[t]])
         if state_value > 0:
             state_value = torch.tensor([state_value.item() * 2])
@@ -103,19 +103,21 @@ def main():
     total_reward = []
     loss = 0
     l_total_step = 0
-    max_step = 10000000
+    max_step = 4000000
     log_interval = 500
+    il_period = 5000
+    il_percent = 0.5 # 0.2 0.5 1.0
     start_time = time.time()
     for i_episode in count(1):
         state, op_seq = env.reset_il()
         ep_reward = 0
         for t in range(0, 100): # Don't infinite loop while learning (500)
             total_step += 1
-            action = select_action(state, t, op_seq, total_step)
+            action = select_action(state, t, op_seq, total_step, il_period, il_percent)
             state, reward, done, _ = env.step(action)
             policy.rewards.append(reward)
             ep_reward += reward
-            if done or total_step % 100000 == 0:
+            if done or total_step % il_period == 0:
                 break
 
         running_reward = 0.001 * ep_reward + (1 - 0.001) * running_reward
@@ -126,6 +128,9 @@ def main():
             total_reward.append(running_reward)
             l_total_step = total_step
             loss = 0
+            t_r = json.dumps(total_reward)
+            with open('reward/ac_reward_0.5.json', 'w') as outfile:
+                outfile.write(t_r)
         if total_step > max_step:
             break
     
@@ -135,9 +140,7 @@ def main():
     print(run_time, end="")
     print("min")
 
-    t_r = json.dumps(total_reward)
-    with open('reward/ac_reward.json', 'w') as outfile:
-        outfile.write(t_r)
+    
 
     # Plot
     x = np.arange(log_interval, i_episode, log_interval, dtype=int)

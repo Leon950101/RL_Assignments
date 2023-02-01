@@ -37,27 +37,22 @@ class Gridworld(gym.Env):
     def __init__(self): # arg1, arg2
         super().__init__()
         
-        # Action space: move = 0, turnLeft = 1, turnRight = 2, pickMarker = 3, putMarker = 4, finish = 5
+        # Action Space
         self.actions = [0, 1, 2, 3, 4, 5]
-        self.action_dir = {"move":0, "turnLeft":1, "turnRight":2, "pickMarker":3,
-                           "putMarker":4, "finish":5}
-        # Reward function
+        self.action_dir = {"move":0, "turnLeft":1, "turnRight":2, "pickMarker":3, "putMarker":4, "finish":5}
+        # Reward Function
         self.rewards = {"minus": -0.1, "normal": 0, "medium": 0.1, "positive": 1}
+        # Env Settings
         self.env_index = -1 # Enviornment index
         self.total_step = 0
         self.directions = {"west":0, "south":1, "east":2, "north":3}
-
         self.gamma = 0.99
 
         # Define action and observation space. They must be gym.spaces objects
         n_actions = len(self.actions)
-        self.action_space = spaces.Discrete(n_actions) # For PPO A2C
-        # self.action_space = spaces.Box(low=0, high=0.999, shape=(1, ), dtype=np.float32) # For DDPG
-
-        # Example for using image as input (channel-first; channel-last also works):
-        # observation_space = spaces.Box(low=0, high=255, shape=(HEIGHT, WIDTH, N_CHANNELS), dtype=np.uint8)
-        # maybe float with noise (random.rand()/10.0)make the model more robust
-        self.observation_space = spaces.Box(low=0, high=4, shape=(32, ), dtype=np.float32) # 38 22 32
+        self.action_space = spaces.Discrete(n_actions)
+        # self.action_space = spaces.Box(low=0, high=6, shape=(1, ), dtype=np.float32) # For DDPG
+        self.observation_space = spaces.Box(low=0, high=4, shape=(38, ), dtype=np.float32) # 38 22 32
     
     def _get_state_map(self, agent_position, s_f, w, m, post_m):
         # 32 Worst
@@ -126,23 +121,22 @@ class Gridworld(gym.Env):
         
         return state
 
-    def _get_agent_position(self, state_part):
-
+    def _get_agent_position(self, state):
         # 32
-        if len(state_part) == 16:
+        if len(state) == 32:
+            agent_part = state[0:16]
             for i in range(16):
-                if state_part[i] > 2:
+                if agent_part[i] > 2:
                     x = i // 4
                     y = i % 4
-                    d = (state_part[i] + 1) % 4
-            agent_position = [d, x, y]
-        
+                    d = (agent_part[i] + 1) % 4
+            agent_position = [d, x, y]       
         # 22 38
         else:
-            agent_position = state_part
-
+            agent_position = state[0:3]
         return agent_position
 
+    # Read Json File
     def _reset_all(self, fcc_data_task):
         
         self.x, self.y = fcc_data_task["gridsz_num_rows"], fcc_data_task["gridsz_num_cols"]
@@ -158,51 +152,47 @@ class Gridworld(gym.Env):
 
         self.ep_step = 0 # Episode step counter
 
+    # Basic for PPO
     def reset(self):
         # Randomly
-        self.env_index = random.randint(0, 23999) # 3999, 11999, 23999
+        self.env_index = random.randint(0, 23999)
         with open('data/train/task/'+str(self.env_index)+'_task.json', 'r') as fcc_file_task:
             fcc_data_task = json.load(fcc_file_task)
-        
-        # Sequencially
-        # if self.env_index < 23999:
-        #     self.env_index += 1
-        # else:
-        #     self.env_index = 0
 
-        # Curiculumm Design
+        self._reset_all(fcc_data_task)
+        return self.state
+
+    # Curiculumm Design
+    def reset_cd(self):
         # self.data_type = random.randint(0, 2)
-        # if self.total_step < 50000: # self.data_type == 0: # 
-        #     self.env_index = random.randint(0, 3999)
-        #     with open('data_easy/train/task/'+str(self.env_index)+'_task.json', 'r') as fcc_file_task:
-        #         fcc_data_task = json.load(fcc_file_task)
-        # elif self.total_step < 100000: # self.data_type == 1: # 
-        #     self.env_index = random.randint(0, 11999)
-        #     with open('data_medium/train/task/'+str(self.env_index)+'_task.json', 'r') as fcc_file_task:
-        #         fcc_data_task = json.load(fcc_file_task)
-        # else:
-        #     self.env_index = random.randint(0, 23999)
-        #     with open('data/train/task/'+str(self.env_index)+'_task.json', 'r') as fcc_file_task:
-        #         fcc_data_task = json.load(fcc_file_task)
-
-        self._reset_all(fcc_data_task)
-        return self.state
-
-    # For test
-    def reset_val(self, map_index, label):
+        if self.total_step < 50000: # self.data_type == 0: # 
+            self.env_index = random.randint(0, 3999)
+            with open('data_easy/train/task/'+str(self.env_index)+'_task.json', 'r') as fcc_file_task:
+                fcc_data_task = json.load(fcc_file_task)
+            with open('data_easy/train/seq/'+str(self.env_index)+'_seq.json', 'r') as fcc_file_seq:
+                fcc_data_seq = json.load(fcc_file_seq)
+        elif self.total_step < 100000: # self.data_type == 1: # 
+            self.env_index = random.randint(0, 11999)
+            with open('data_medium/train/task/'+str(self.env_index)+'_task.json', 'r') as fcc_file_task:
+                fcc_data_task = json.load(fcc_file_task)
+            with open('data_medium/train/seq/'+str(self.env_index)+'_seq.json', 'r') as fcc_file_seq:
+                fcc_data_seq = json.load(fcc_file_seq)
+        else:
+            self.env_index = random.randint(0, 23999)
+            with open('data/train/task/'+str(self.env_index)+'_task.json', 'r') as fcc_file_task:
+                fcc_data_task = json.load(fcc_file_task)
+            with open('data/train/seq/'+str(self.env_index)+'_seq.json', 'r') as fcc_file_seq:
+                fcc_data_seq = json.load(fcc_file_seq)
         
-        self.env_index = map_index
-        with open('data/'+label+'/task/'+str(map_index)+'_task.json', 'r') as fcc_file_task:
-            fcc_data_task = json.load(fcc_file_task)
-        
+        self.op_se = fcc_data_seq["sequence"]
         self._reset_all(fcc_data_task)
-        return self.state
+        return self.state, self.op_se
     
-    # For Imitation Learnning
+    # Imitation Learnning
     def reset_il(self):
         
         # Randomly
-        self.env_index = random.randint(0, 23999) # 3999, 11999, 23999
+        self.env_index = random.randint(0, 23999)
 
         with open('data/train/task/'+str(self.env_index)+'_task.json', 'r') as fcc_file_task:
             fcc_data_task = json.load(fcc_file_task)
@@ -213,7 +203,17 @@ class Gridworld(gym.Env):
         self._reset_all(fcc_data_task)
         return self.state, self.op_se
     
-    # For I.5
+    # Test
+    def reset_val(self, map_index, label):
+        
+        self.env_index = map_index
+        with open('data/'+label+'/task/'+str(map_index)+'_task.json', 'r') as fcc_file_task:
+            fcc_data_task = json.load(fcc_file_task)
+        
+        self._reset_all(fcc_data_task)
+        return self.state
+
+    # I.5
     def reset_file(self, file):
         
         with open(file, 'r') as fcc_file_task:
@@ -223,11 +223,7 @@ class Gridworld(gym.Env):
         return self.state
 
     def step(self, a):
-        if len(self.state) == 32:
-            a_p = self._get_agent_position(self.state[0:16])
-        else:
-            a_p = self._get_agent_position(self.state[0:3])
-        d, x, y = a_p
+        d, x, y = self._get_agent_position(self.state)
         t = True # Termination status
         r = 0 # Reward
         info = {}
@@ -281,7 +277,7 @@ class Gridworld(gym.Env):
                 if [x, y] in self.preMarkers and [x, y] not in self.postMarkers:
                     r = self.rewards["medium"]
                 else: 
-                    r = self.rewards["minus"]
+                    r = - self.rewards["medium"]
                 self.markers.remove([x, y])
     
         elif a == self.PUTMARKER : # Action "putMarker"
@@ -294,15 +290,12 @@ class Gridworld(gym.Env):
                 if [x, y] in self.postMarkers and [x, y] not in self.preMarkers:
                     r = self.rewards["medium"]
                 else:
-                    r = self.rewards["minus"]
+                    r = - self.rewards["medium"]
                 self.markers.append([x, y])
                 
         elif a == self.FINISH : # Action "finish"
-            t = True
-            if len(self.state) == 32:
-                d_f, x_f, y_f = self._get_agent_position(self.s_f[0:16])
-            else:
-                d_f, x_f, y_f = self._get_agent_position(self.s_f[0:3])
+            t = True 
+            d_f, x_f, y_f = self._get_agent_position(self.s_f)
             self.state = self._get_state_map([d, x, y], [d_f, x_f, y_f], self.walls, self.markers, self.postMarkers)
             # If the agent at target grid with the specific MARKER picked/put: return positive reward (1);
             if (self.state == self.s_f).all(): 
@@ -315,10 +308,7 @@ class Gridworld(gym.Env):
         else:
             raise ValueError("Received invalid action={} which is not part of the action space".format(a))
         
-        if len(self.state) == 32:
-            d_f, x_f, y_f = self._get_agent_position(self.s_f[0:16])
-        else:
-            d_f, x_f, y_f = self._get_agent_position(self.s_f[0:3])
+        d_f, x_f, y_f = self._get_agent_position(self.s_f)
         self.state = self._get_state_map([d, x, y], [d_f, x_f, y_f], self.walls, self.markers, self.postMarkers)
         return self.state, r, t, info # obs, reward, done, info
 
@@ -327,17 +317,13 @@ class Gridworld(gym.Env):
         dir_c = {'0':'W ', '1':'S ', '2':'E ', '3':'N '}
         if mode != 'human':
             raise NotImplementedError()
-        if len(self.state) == 32:
-            a_p = self._get_agent_position(self.state[0:16])
-        else:
-            a_p = self._get_agent_position(self.state[0:3])
-        d, a_x, a_y = a_p
+        a_d, a_x, a_y = self._get_agent_position(self.state)
         for x in range(self.x):
             print()
             for y in range(self.y):
                 if x == a_x and y == a_y: # Agent current location
-                    if [x, y] in self.markers: print(dir_c[str(d)], end="")
-                    else: print(dir_s[str(d)], end="")
+                    if [x, y] in self.markers: print(dir_c[str(a_d)], end="")
+                    else: print(dir_s[str(a_d)], end="")
                 elif [x, y] in self.walls: print('# ', end="")
                 elif [x, y] in self.markers: print('o ', end="")
                 else: print("- ", end="")
