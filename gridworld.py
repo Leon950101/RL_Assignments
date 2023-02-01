@@ -163,15 +163,14 @@ class Gridworld(gym.Env):
         return self.state
 
     # Curiculumm Design
-    def reset_cd(self):
-        # self.data_type = random.randint(0, 2)
-        if self.total_step < 50000: # self.data_type == 0: # 
+    def reset_cd(self, easy_per, medium_per, total_step):
+        if self.total_step < int(easy_per * total_step):
             self.env_index = random.randint(0, 3999)
             with open('data_easy/train/task/'+str(self.env_index)+'_task.json', 'r') as fcc_file_task:
                 fcc_data_task = json.load(fcc_file_task)
             with open('data_easy/train/seq/'+str(self.env_index)+'_seq.json', 'r') as fcc_file_seq:
                 fcc_data_seq = json.load(fcc_file_seq)
-        elif self.total_step < 100000: # self.data_type == 1: # 
+        elif self.total_step < int(medium_per * total_step):
             self.env_index = random.randint(0, 11999)
             with open('data_medium/train/task/'+str(self.env_index)+'_task.json', 'r') as fcc_file_task:
                 fcc_data_task = json.load(fcc_file_task)
@@ -197,9 +196,9 @@ class Gridworld(gym.Env):
         with open('data/train/task/'+str(self.env_index)+'_task.json', 'r') as fcc_file_task:
             fcc_data_task = json.load(fcc_file_task)
         with open('data/train/seq/'+str(self.env_index)+'_seq.json', 'r') as fcc_file_seq:
-            fcc_data_seq = json.load(fcc_file_seq)
+            fcc_data_seq = json.load(fcc_file_seq)     
+            
         self.op_se = fcc_data_seq["sequence"]
-
         self._reset_all(fcc_data_task)
         return self.state, self.op_se
     

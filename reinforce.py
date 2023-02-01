@@ -38,7 +38,7 @@ class Policy(nn.Module):
 
 
 policy = Policy()
-optimizer = optim.Adam(policy.parameters(), lr=1e-4) # larger than this would fail the Normal learning (inifite loop)
+optimizer = optim.Adam(policy.parameters(), lr=1e-4)
 
 def select_action(state, t, op_seq, total_step, il_period, il_percent):
     state = torch.from_numpy(state).float().unsqueeze(0)
@@ -106,7 +106,7 @@ def main():
                 break
 
         running_reward = 0.001 * ep_reward + (1 - 0.001) * running_reward
-        loss += finish_episode()
+        loss += finish_episode() / log_interval
         if i_episode % log_interval == 0:
             print('Total Step {}| Episode: {}| Ep Length: {:.2f}| Average reward: {:.2f}| Loss: {:.4f}'.format(
                   total_step, i_episode, (total_step-l_total_step)/log_interval, running_reward, loss))
@@ -130,7 +130,6 @@ def main():
     y = total_reward
     fig, axs = plt.subplots()
     axs.plot(x, y, label="reinforce_average_reward")
-    # axs.fill_between(x, mean + 0.5*std, mean - 0.5*std, alpha=0.2)
 
     plt.legend()
     plt.show()
@@ -171,7 +170,8 @@ def main():
 
     print("In Total: Solved Optimal: " + str(solved_optimal) + " | Solved Not Optimal: " + 
         str(solved_not_optimal) +" | Not Solved: " + str(not_solved))
-    print("Solved Optimal: {}%".format(round(solved_optimal/2400*100, 2)))
+    print("Solved Optimal: {}%".format(round(solved_optimal/2400*100, 2)), end="")
+    print(" | Solved: {}%".format(round((solved_optimal+solved_not_optimal)/2400*100, 2)))
     
     env.close()
 

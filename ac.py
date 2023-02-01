@@ -1,4 +1,4 @@
-# 6m 74%
+# 1011 38
 import numpy as np
 import time
 import json
@@ -15,7 +15,6 @@ from gridworld import Gridworld
 import matplotlib.pyplot as plt
 
 env = Gridworld()
-env.reset()
 input = env.observation_space.shape[0]
 # torch.manual_seed(543)
 
@@ -43,7 +42,6 @@ class Policy(nn.Module):
 
 policy = Policy()
 optimizer = optim.Adam(policy.parameters(), lr=5e-4)
-# eps = np.finfo(np.float32).eps.item()
 
 def select_action(state, t, op_seq, total_step, il_period, il_percent):
     state = torch.from_numpy(state).float()
@@ -52,12 +50,12 @@ def select_action(state, t, op_seq, total_step, il_period, il_percent):
     m = Categorical(probs)
     action = m.sample()
     # Imitation Learning
-    if (total_step - 1) % il_period < int(il_period * il_percent): # as least 5% (5000/100000)
+    if (total_step - 1) % il_period < int(il_period * il_percent):
         action = torch.tensor(env.action_dir[op_seq[t]])
-        if state_value > 0:
+        if state_value > 0: # Must hack
             state_value = torch.tensor([state_value.item() * 2])
         else:
-            state_value = torch.tensor([state_value.item() * 2])
+            state_value = torch.tensor([state_value.item() / 2])
     policy.saved_actions.append(SavedAction(m.log_prob(action), state_value))
     return action.item()
 
@@ -81,7 +79,6 @@ def finish_episode():
         returns.insert(0, R)
 
     returns = torch.tensor(returns)
-    # returns = (returns - returns.mean()) / (returns.std() + eps)
     for (log_prob, value), R in zip(saved_actions, returns):
         advantage = R - value.item()
         policy_losses.append(-log_prob * advantage)
@@ -103,13 +100,17 @@ def main():
     total_reward = []
     loss = 0
     l_total_step = 0
-    max_step = 4000000
+    max_step = 8000000
     log_interval = 500
     il_period = 5000
-    il_percent = 0.5 # 0.2 0.5 1.0
+    il_percent = 0.0
+    # 0.0       | 0.01  | 0.05 | 0.1(Base)  | 0.2   | 0.5   | 1.0   | divide    | divide_0.05
+    # 0/0(100)  | 47/83 | 45/75| 46/75      | 36/50 | 53    | 0     | 48/77     ｜ 6/71 
     start_time = time.time()
     for i_episode in count(1):
-        state, op_seq = env.reset_il()
+        # 0.01 0.1  | 0.03 0.3  | 0.03 0.15 ｜ 0.03 0.15 8m
+        # 54/78     | 59/81     ||
+        state, op_seq = env.reset_cd(0.015, 0.075, max_step)
         ep_reward = 0
         for t in range(0, 100): # Don't infinite loop while learning (500)
             total_step += 1
@@ -121,15 +122,15 @@ def main():
                 break
 
         running_reward = 0.001 * ep_reward + (1 - 0.001) * running_reward
-        loss += finish_episode()
-        if i_episode % log_interval == 0: # total_step
+        loss += finish_episode() / log_interval
+        if i_episode % log_interval == 0:
             print('Total Step {}| Episode: {}| Ep Length: {:.2f}| Average reward: {:.2f}| Loss: {:.4f}'.format(
                   total_step, i_episode, (total_step-l_total_step)/log_interval, running_reward, loss))
             total_reward.append(running_reward)
             l_total_step = total_step
             loss = 0
             t_r = json.dumps(total_reward)
-            with open('reward/ac_reward_0.5.json', 'w') as outfile:
+            with open('reward/ac_reward_cd_0.03_0.15_8m.json', 'w') as outfile:
                 outfile.write(t_r)
         if total_step > max_step:
             break
@@ -138,16 +139,13 @@ def main():
     run_time = round((end_time - start_time)/60)
     print("Run Time: ", end="")
     print(run_time, end="")
-    print("min")
-
-    
+    print("min")   
 
     # Plot
     x = np.arange(log_interval, i_episode, log_interval, dtype=int)
     y = total_reward
     fig, axs = plt.subplots()
     axs.plot(x, y, label="ac_average_reward")
-    # axs.fill_between(x, mean + 0.5*std, mean - 0.5*std, alpha=0.2)
 
     plt.legend()
     plt.show()
@@ -188,7 +186,8 @@ def main():
 
     print("In Total: Solved Optimal: " + str(solved_optimal) + " | Solved Not Optimal: " + 
         str(solved_not_optimal) +" | Not Solved: " + str(not_solved))
-    print("Solved Optimal: {}%".format(round(solved_optimal/2400*100, 2)))
+    print("Solved Optimal: {}%".format(round(solved_optimal/2400*100, 2)), end="")
+    print(" | Solved: {}%".format(round((solved_optimal+solved_not_optimal)/2400*100, 2)))
     
     env.close()
 
