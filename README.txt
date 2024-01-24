@@ -1,3 +1,5 @@
+## Assignments for RL course
+
 conda create -n rl python=3.8
 pip install stable-baselines3
 
