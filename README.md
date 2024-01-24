@@ -1,13 +1,13 @@
-## Assignments for RL course
+# Assignments for RL course
 
-# Env
+## Env
 
 conda create -n rl python=3.8
 
 pip install stable-baselines3
 
 
-# Usage
+## Usage
 
 ppo.py for train ppo
 
